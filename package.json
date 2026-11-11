@@ -1,0 +1,22 @@
+{
+  "name": "whats-for-lunch",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Sends today's Meyers lunch menu to Discord every weekday morning via GitHub Actions.",
+  "packageManager": "bun@1.4.2",
+  "engines": {
+    "bun": ">=1.4.2"
+  },
+  "scripts": {
+    "build": "bun --bun tsc",
+    "start": "bun dist/index.js",
+    "check": "bun --bun tsc --noEmit && bun --bun tsc -p tsconfig.test.json",
+    "test": "bun test",
+    "preview": "bun src/preview.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "typescript": "^7.0.2"
+  }
+}

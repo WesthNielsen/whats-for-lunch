@@ -1,0 +1,41 @@
+name: WhatsForLunch
+
+on:
+  schedule:
+    # 07:30 Europe/Copenhagen: 05:30 UTC in summer (CEST), 06:30 UTC in winter (CET).
+    # The job sends only from the cron that matches local time today.
+    - cron: "30 5 * * 1-5"
+    - cron: "30 6 * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: whats-for-lunch
+  cancel-in-progress: false
+
+jobs:
+  lunch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bun run build
+
+      - name: Send today's menu
+        run: bun run start
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          LUNCH_SCHEDULE: ${{ github.event.schedule }}
