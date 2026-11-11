@@ -1,8 +1,8 @@
 # WhatsForLunch
 
 A GitHub Actions job that posts today's **Meyers "Det Velkendte - Portionspakket"**
-lunch menu from <https://meyers.dk/ugens-menuer> to Discord every weekday at
-**07:30 Copenhagen time**.
+lunch menu from <https://meyers.dk/ugens-menuer> to Discord in English every
+weekday at **07:30 Copenhagen time**. It uses Meyers' own English menu text.
 
 Halal, vegetarian and vegan hot dishes are hidden by default, matching the
 original `WhatsForLunch.ps1` script.
@@ -29,6 +29,8 @@ message says so. Manual runs from the **Actions** tab always send immediately.
 
 Optionally set `LUNCH_INCLUDE_ALL=true` in the workflow step's `env` to include
 the halal, vegetarian and vegan hot dishes.
+Set `LUNCH_LANGUAGE` to `da` for Danish; the default in the application is
+Danish, while the scheduled workflow explicitly sets it to `en`.
 
 ## Failure behavior
 
@@ -47,6 +49,7 @@ bun run check
 bun run test
 bun run preview        # print today's message without sending it
 bun run preview --all  # include halal/vegetarian/vegan dishes
+LUNCH_LANGUAGE=en bun run preview  # preview Meyers' English menu text
 ```
 
 To send for real, copy [.env.example](./.env.example) to `.env`, set the webhook,

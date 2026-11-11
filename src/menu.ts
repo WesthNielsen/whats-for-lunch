@@ -1,6 +1,16 @@
 export const SOURCE_URL = "https://meyers.dk/ugens-menuer";
 export const MENU_NAME = "Det Velkendte - Portionspakket";
-export const EXCLUDED_SECTIONS = ["Varm ret, halal", "Varm ret, vegetarisk", "Varm ret, vegansk"];
+export const EXCLUDED_SECTIONS = [
+  "Varm ret, halal",
+  "Varm ret, vegetarisk",
+  "Varm ret, vegansk",
+  "Hot dish, halal",
+  "Hot dish, vegetarian",
+  "Hot dish, vegetarian/vegan",
+  "Hot dish, vegan",
+];
+
+export type MenuLanguage = "da" | "en";
 
 export interface MenuSection {
   label: string;
@@ -16,6 +26,14 @@ const FORMAT_CHANGED = "The Meyers data format may have changed. The parser need
 
 const sameText = (a: string, b: string) => a.localeCompare(b, "da", { sensitivity: "accent" }) === 0;
 
+export function readLanguage(value: string | undefined): MenuLanguage {
+  const language = value?.trim().toLowerCase() || "da";
+  if (language !== "da" && language !== "en") {
+    throw new Error("LUNCH_LANGUAGE must be 'da' or 'en'");
+  }
+  return language;
+}
+
 export function decodeHtml(value: string): string {
   const named: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: "\"", apos: "'", nbsp: "\u00a0" };
   return value.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/giu, (entity, code: string) => {
@@ -28,7 +46,11 @@ export function decodeHtml(value: string): string {
 }
 
 // Nuxt stores JSON values in a shared table; object properties and array entries are references.
-export function parseMenus(html: string, menuName: string = MENU_NAME): DailyMenu[] {
+export function parseMenus(
+  html: string,
+  menuName: string = MENU_NAME,
+  language: MenuLanguage = "da",
+): DailyMenu[] {
   const payload = /<script\b[^>]*\bid=["']__NUXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/u.exec(html);
   if (!payload?.[1]) {
     throw new Error("The Meyers page no longer contains the expected menu data. The parser needs updating.");
@@ -58,6 +80,13 @@ export function parseMenus(html: string, menuName: string = MENU_NAME): DailyMen
     if (typeof value !== "object" || value === null || Array.isArray(value)) throw new Error(FORMAT_CHANGED);
     return value as Record<string, unknown>;
   };
+  const localized = (reference: unknown): string => {
+    const value = at(object(reference)[language]);
+    if (typeof value !== "string") {
+      throw new Error(`A menu item is missing its ${language === "en" ? "English" : "Danish"} text. ${FORMAT_CHANGED}`);
+    }
+    return decodeHtml(value);
+  };
   const danish = (reference: unknown): string => {
     const value = at(object(reference).da);
     if (typeof value !== "string") throw new Error("A menu item is missing its Danish text. " + FORMAT_CHANGED);
@@ -85,8 +114,8 @@ export function parseMenus(html: string, menuName: string = MENU_NAME): DailyMen
       if (sectionReferences.length === 0) throw new Error(`The menu for ${date} has no sections.`);
       const sections = sectionReferences.map((sectionReference) => {
         const section = object(sectionReference);
-        const label = danish(section.names);
-        const dishes = array(section.menu_dishes).map((dish) => danish(object(dish).names));
+        const label = localized(section.names);
+        const dishes = array(section.menu_dishes).map((dish) => localized(object(dish).names));
         if (dishes.length === 0) throw new Error(`The '${label}' section has no dishes.`);
         return { label, dishes };
       });
@@ -97,23 +126,25 @@ export function parseMenus(html: string, menuName: string = MENU_NAME): DailyMen
   return menus;
 }
 
-export function formatHeading(date: string): string {
+export function formatHeading(date: string, language: MenuLanguage = "da"): string {
   const [year, month, day] = date.split("-").map(Number);
   const value = new Date(Date.UTC(year ?? 0, (month ?? 1) - 1, day ?? 1, 12));
-  const parts = new Intl.DateTimeFormat("da-DK", {
+  const parts = new Intl.DateTimeFormat(language === "en" ? "en-GB" : "da-DK", {
     weekday: "long", day: "2-digit", month: "long", year: "numeric", timeZone: "UTC",
   }).formatToParts(value);
   const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? "";
-  const capitalize = (text: string) => text.charAt(0).toLocaleUpperCase("da") + text.slice(1);
-  return `${capitalize(part("weekday"))} ${part("day")}. ${capitalize(part("month"))} ${part("year")}`;
+  const capitalize = (text: string) => text.charAt(0).toLocaleUpperCase(language) + text.slice(1);
+  const dayPart = language === "en" ? part("day") : `${part("day")}.`;
+  return `${capitalize(part("weekday"))} ${dayPart} ${capitalize(part("month"))} ${part("year")}`;
 }
 
 export function formatMessage(
   date: string,
   menus: DailyMenu[],
-  options: { includeAll?: boolean; menuName?: string } = {},
+  options: { includeAll?: boolean; menuName?: string; language?: MenuLanguage } = {},
 ): string {
-  const lines = [`🍽️ **${options.menuName ?? MENU_NAME} — ${formatHeading(date)}**`];
+  const language = options.language ?? "da";
+  const lines = [`🍽️ **${options.menuName ?? MENU_NAME} — ${formatHeading(date, language)}**`];
   const daily = menus.filter((menu) => menu.date === date);
   if (daily.length === 0) {
     lines.push("", `No menu published for ${date}.`);

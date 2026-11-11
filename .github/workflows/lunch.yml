@@ -39,3 +39,4 @@ jobs:
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           LUNCH_SCHEDULE: ${{ github.event.schedule }}
+          LUNCH_LANGUAGE: en

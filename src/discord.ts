@@ -1,11 +1,14 @@
 import { request, retryDelay, sleep } from "./http.ts";
 import type { Fetch, Sleep } from "./http.ts";
+import { readLanguage } from "./menu.ts";
+import type { MenuLanguage } from "./menu.ts";
 
 export type Notify = (content: string) => Promise<void>;
 
 export interface Config {
   webhookUrl: string;
   includeAll: boolean;
+  language: MenuLanguage;
 }
 
 export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -23,7 +26,11 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
     url.username || url.password || url.port) {
     throw new Error("DISCORD_WEBHOOK_URL must be an HTTPS Discord webhook URL");
   }
-  return { webhookUrl: raw, includeAll: /^(1|true|yes)$/iu.test(env.LUNCH_INCLUDE_ALL?.trim() ?? "") };
+  return {
+    webhookUrl: raw,
+    includeAll: /^(1|true|yes)$/iu.test(env.LUNCH_INCLUDE_ALL?.trim() ?? ""),
+    language: readLanguage(env.LUNCH_LANGUAGE),
+  };
 }
 
 export function createNotifier(

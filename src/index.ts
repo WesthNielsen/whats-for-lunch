@@ -1,7 +1,7 @@
 import { createNotifier, readConfig } from "./discord.ts";
 import type { Notify } from "./discord.ts";
 import { request } from "./http.ts";
-import { SOURCE_URL, formatMessage, parseMenus } from "./menu.ts";
+import { MENU_NAME, SOURCE_URL, formatMessage, parseMenus } from "./menu.ts";
 import { isScheduleDue, isWeekend, localDate } from "./schedule.ts";
 
 const now = new Date();
@@ -16,8 +16,9 @@ try {
     const config = readConfig();
     notify = createNotifier(config.webhookUrl);
     const response = await request(SOURCE_URL, {}, "Meyers menu page");
-    const message = formatMessage(today, parseMenus(response.body.toString("utf8")), {
+    const message = formatMessage(today, parseMenus(response.body.toString("utf8"), MENU_NAME, config.language), {
       includeAll: config.includeAll,
+      language: config.language,
     });
     console.log(message);
     await notify(message);

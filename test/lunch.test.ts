@@ -2,13 +2,22 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createNotifier, readConfig } from "../src/discord.ts";
 import type { Fetch } from "../src/http.ts";
-import { decodeHtml, formatHeading, formatMessage, parseMenus } from "../src/menu.ts";
+import { decodeHtml, formatHeading, formatMessage, parseMenus, readLanguage } from "../src/menu.ts";
 import { isScheduleDue, isWeekend, localDate, utcOffsetHours } from "../src/schedule.ts";
 
 function page(): string {
   const data: unknown[] = [];
   const add = (value: unknown) => data.push(value) - 1;
-  const text = (da: string) => add({ da: add(da), en: add("en") });
+  const translations: Record<string, string> = {
+    "Varm ret, kød": "Hot dish, meat",
+    "Frikassé &amp; perleløg": "Fricassee &amp; pearl onions",
+    "Varm ret, vegansk": "Hot dish, vegan",
+    Linsegryde: "Lentil stew",
+    "Dagens salat": "Salad of the day",
+    Kålsalat: "Cabbage salad",
+    "Grøn salat": "Green salad",
+  };
+  const text = (da: string) => add({ da: add(da), en: add(translations[da] ?? da) });
   const ref = (value: unknown) => add(value);
   data.push(["ShallowReactive", 1], null);
   const section = (label: string, dishes: string[]) => ref({
@@ -61,9 +70,27 @@ test("formats today's menu and hides excluded sections by default", () => {
   assert.match(formatMessage("2026-11-12", menus), /No menu published for 2026-11-12/u);
 });
 
+test("parses and formats Meyers' English menu text", () => {
+  const menus = parseMenus(page(), undefined, "en");
+  assert.deepEqual(menus[0]?.sections[0], {
+    label: "Hot dish, meat",
+    dishes: ["Fricassee & pearl onions"],
+  });
+  const message = formatMessage("2026-11-11", menus, { language: "en" });
+  assert.match(message, /Wednesday 11 November 2026/u);
+  assert.match(message, /\*\*Hot dish, meat\*\*\n- Fricassee & pearl onions/u);
+  assert.match(message, /\*\*Salad of the day\*\*\n- Cabbage salad\n- Green salad/u);
+  assert.doesNotMatch(message, /Lentil stew|Hot dish, vegan/u);
+  assert.match(formatMessage("2026-11-11", menus, { includeAll: true, language: "en" }), /Lentil stew/u);
+});
+
 test("decodes HTML entities and formats Danish headings", () => {
   assert.equal(decodeHtml("&quot;a&quot; &#230; &#xF8; &unknown;"), "\"a\" æ ø &unknown;");
   assert.equal(formatHeading("2026-03-02"), "Mandag 02. Marts 2026");
+  assert.equal(formatHeading("2026-03-02", "en"), "Monday 02 March 2026");
+  assert.equal(readLanguage(undefined), "da");
+  assert.equal(readLanguage(" en "), "en");
+  assert.throws(() => readLanguage("fr"), /LUNCH_LANGUAGE/u);
 });
 
 test("only the cron matching 07:30 Copenhagen time is due", () => {
@@ -90,7 +117,10 @@ test("validates the webhook and reads options", () => {
   assert.throws(() => readConfig({}), /Set DISCORD/u);
   assert.throws(() => readConfig({ DISCORD_WEBHOOK_URL: "https://example.com/api/webhooks/1/x" }), /HTTPS Discord/u);
   const webhook = "https://discord.com/api/webhooks/123/token";
-  assert.deepEqual(readConfig({ DISCORD_WEBHOOK_URL: webhook }), { webhookUrl: webhook, includeAll: false });
+  assert.deepEqual(readConfig({ DISCORD_WEBHOOK_URL: webhook }), {
+    webhookUrl: webhook, includeAll: false, language: "da",
+  });
+  assert.equal(readConfig({ DISCORD_WEBHOOK_URL: webhook, LUNCH_LANGUAGE: "en" }).language, "en");
   assert.equal(readConfig({ DISCORD_WEBHOOK_URL: webhook, LUNCH_INCLUDE_ALL: "true" }).includeAll, true);
 });
 
